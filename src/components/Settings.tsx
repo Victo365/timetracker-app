@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserSettings } from '../types';
-import { Mail, Lock, Trash2, Sun, Moon, LogOut, Shield } from 'lucide-react';
+import { Mail, Lock, Trash2, Sun, Moon, LogOut, Shield, Euro } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail } from 'firebase/auth';
 
@@ -11,6 +11,7 @@ interface SettingsProps {
   onDeleteAccount: (password: string) => Promise<void>;
   onToggleTheme: () => void;
   onUpdateName: (newName: string) => void;
+  onUpdateHourlyRate: (newRate: number) => Promise<void>;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -20,17 +21,20 @@ export const Settings: React.FC<SettingsProps> = ({
   onDeleteAccount,
   onToggleTheme,
   onUpdateName,
+  onUpdateHourlyRate,
 }) => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
+  const [showHourlyRateModal, setShowHourlyRateModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
   const [newName, setNewName] = useState(settings.name);
+  const [newHourlyRate, setNewHourlyRate] = useState(settings.hourlyRate.toString());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [verificationPassword, setVerificationPassword] = useState('');
@@ -127,6 +131,22 @@ export const Settings: React.FC<SettingsProps> = ({
     }
   };
 
+  const handleHourlyRateUpdate = async () => {
+    try {
+      const rate = parseFloat(newHourlyRate);
+      if (isNaN(rate) || rate <= 0) {
+        setError('Please enter a valid hourly rate');
+        return;
+      }
+      await onUpdateHourlyRate(rate);
+      setSuccess('Hourly rate updated successfully!');
+      setShowHourlyRateModal(false);
+      resetForm();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setIsVerifying(true);
     setError(null);
@@ -156,6 +176,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setConfirmPassword('');
     setDeletePassword('');
     setNewName(settings.name);
+    setNewHourlyRate(settings.hourlyRate.toString());
     setVerificationPassword('');
     setError(null);
     setIsVerifying(false);
@@ -195,6 +216,25 @@ export const Settings: React.FC<SettingsProps> = ({
               className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
             >
               {settings.theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+            </button>
+          </div>
+        </div>
+
+        {/* Hourly Rate Settings */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <Euro className="text-emerald-600" size={24} />
+              <div>
+                <h3 className="text-lg font-medium text-slate-700">Hourly Rate</h3>
+                <p className="text-sm text-slate-500">€{settings.hourlyRate.toFixed(2)} per hour</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowHourlyRateModal(true)}
+              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              Update Rate
             </button>
           </div>
         </div>
@@ -277,6 +317,52 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Hourly Rate Modal */}
+      {showHourlyRateModal && (
+        <div className="fixed inset-0 bg-slate-500/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[480px] max-w-[90vw]">
+            <h3 className="text-lg font-semibold mb-4 text-slate-700">Update Hourly Rate</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Hourly Rate (€)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={newHourlyRate}
+                    onChange={(e) => setNewHourlyRate(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    className="w-full rounded-lg border border-slate-200 p-2 pr-10"
+                    placeholder="Enter hourly rate"
+                  />
+                  <Euro className="absolute right-3 top-2.5 text-slate-400" size={20} />
+                </div>
+              </div>
+              {error && (
+                <p className="text-sm text-rose-500">{error}</p>
+              )}
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => {
+                    setShowHourlyRateModal(false);
+                    resetForm();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleHourlyRateUpdate}
+                  className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
+                >
+                  Update Rate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Name Change Modal */}
       {showNameModal && (

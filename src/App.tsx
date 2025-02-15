@@ -198,7 +198,7 @@ function App() {
     try {
       setIsUpdating(true);
       const totalHours = calculateWeekHours(updatedEntries);
-      const totalEarnings = totalHours * 12.70;
+      const totalEarnings = totalHours * (userSettings?.hourlyRate || 12.70);
 
       await updateDoc(doc(db, 'savedWeeks', weekId), {
         entries: updatedEntries,
@@ -309,7 +309,7 @@ function App() {
       setUserSettings(updatedSettings);
       
       setSuccessMessage('Email updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating email:', error);
       throw error;
     }
@@ -321,7 +321,7 @@ function App() {
 
       await updatePassword(auth.currentUser, newPassword);
       setSuccessMessage('Password updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating password:', error);
       throw error;
     }
@@ -336,8 +336,23 @@ function App() {
       setUserSettings(updatedSettings);
       
       setSuccessMessage('Name updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating name:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateHourlyRate = async (newRate: number) => {
+    try {
+      if (!auth.currentUser || !userSettings) return;
+
+      const updatedSettings = { ...userSettings, hourlyRate: newRate };
+      await setDoc(doc(db, 'userSettings', auth.currentUser.uid), updatedSettings);
+      setUserSettings(updatedSettings);
+      
+      setSuccessMessage('Hourly rate updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating hourly rate:', error);
       throw error;
     }
   };
@@ -368,7 +383,7 @@ function App() {
       
       setSuccessMessage('Account deleted successfully!');
       setIsAuthenticated(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting account:', error);
       throw error;
     }
@@ -414,7 +429,7 @@ function App() {
       });
 
       const totalHours = calculateWeekHours(weekEntries);
-      const totalEarnings = totalHours * 12.70;
+      const totalEarnings = totalHours * (userSettings?.hourlyRate || 12.70);
 
       if (existingWeek) {
         const updatedWeek = {
@@ -576,6 +591,7 @@ function App() {
                     onDeleteAccount={handleDeleteAccount}
                     onToggleTheme={handleToggleTheme}
                     onUpdateName={handleUpdateName}
+                    onUpdateHourlyRate={handleUpdateHourlyRate}
                   />
                 )}
               </main>
