@@ -63,8 +63,19 @@ function App() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        // Set authenticated but check email verification
         setIsAuthenticated(true);
         setShowLanding(false);
+        
+        // Check email verification status
+        if (!user.emailVerified) {
+          setNeedsEmailVerification(true);
+          return; // Don't load user data until email is verified
+        }
+        
+        setNeedsEmailVerification(false);
+        
+        // Load user settings and data
         const userSettingsDoc = await getDoc(doc(db, 'userSettings', user.uid));
         if (userSettingsDoc.exists()) {
           const settings = userSettingsDoc.data() as UserSettings;
@@ -72,15 +83,16 @@ function App() {
           setUserSettings(settings);
           setTheme(settings.theme);
           
-          setNeedsEmailVerification(!user.emailVerified);
-
+          // Update emailVerified status if it's different in the database
           if (settings.emailVerified !== user.emailVerified) {
             await updateDoc(doc(db, 'userSettings', user.uid), {
               emailVerified: user.emailVerified
             });
           }
         }
-        fetchUserData(user.uid);
+        
+        // Only fetch user data if email is verified
+        await fetchUserData(user.uid);
       } else {
         setIsAuthenticated(false);
         setUserSettings(null);

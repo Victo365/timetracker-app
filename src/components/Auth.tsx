@@ -34,16 +34,33 @@ export const Auth: React.FC<AuthProps> = ({ mode: initialMode, onSuccess, onBack
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         if (!userCredential.user.emailVerified) {
-          setError('Please verify your email before logging in. Check your inbox for the verification link.');
-          await sendEmailVerification(userCredential.user);
-          setVerificationSent(true);
+          try {
+            await sendEmailVerification(userCredential.user);
+            setVerificationSent(true);
+            setError('Please verify your email before logging in. Check your inbox for the verification link.');
+          } catch (verificationError: any) {
+            if (verificationError.code === 'auth/too-many-requests') {
+              setError('Too many verification emails sent. Please wait a while before trying again.');
+            } else {
+              throw verificationError;
+            }
+          }
           return;
         }
+        onSuccess();
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
-        await sendEmailVerification(userCredential.user);
-        setVerificationSent(true);
+        try {
+          await sendEmailVerification(userCredential.user);
+          setVerificationSent(true);
+        } catch (verificationError: any) {
+          if (verificationError.code === 'auth/too-many-requests') {
+            setError('Too many verification emails sent. Please wait a while before trying again.');
+            return;
+          }
+          throw verificationError;
+        }
         
         const userSettings: UserSettings = {
           id: userCredential.user.uid,
@@ -51,18 +68,21 @@ export const Auth: React.FC<AuthProps> = ({ mode: initialMode, onSuccess, onBack
           name,
           theme: 'light',
           hourlyRate: 12.70,
-          emailVerified: false
+          emailVerified: false,
+          createdAt: new Date().toISOString()
         };
         
         await setDoc(doc(db, 'userSettings', userCredential.user.uid), userSettings);
         
+        // Don't call onSuccess() here - let the user verify their email first
         setError('Please check your email to verify your account before logging in.');
-        return;
       }
-
-      onSuccess();
     } catch (error: any) {
-      setError(error.message);
+      if (error.code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait a while before trying again.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
