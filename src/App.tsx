@@ -63,19 +63,16 @@ function App() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        // Set authenticated but check email verification
         setIsAuthenticated(true);
         setShowLanding(false);
         
-        // Check email verification status
         if (!user.emailVerified) {
           setNeedsEmailVerification(true);
-          return; // Don't load user data until email is verified
+          return;
         }
         
         setNeedsEmailVerification(false);
         
-        // Load user settings and data
         const userSettingsDoc = await getDoc(doc(db, 'userSettings', user.uid));
         if (userSettingsDoc.exists()) {
           const settings = userSettingsDoc.data() as UserSettings;
@@ -83,7 +80,6 @@ function App() {
           setUserSettings(settings);
           setTheme(settings.theme);
           
-          // Update emailVerified status if it's different in the database
           if (settings.emailVerified !== user.emailVerified) {
             await updateDoc(doc(db, 'userSettings', user.uid), {
               emailVerified: user.emailVerified
@@ -91,7 +87,6 @@ function App() {
           }
         }
         
-        // Only fetch user data if email is verified
         await fetchUserData(user.uid);
       } else {
         setIsAuthenticated(false);
@@ -169,10 +164,16 @@ function App() {
         isDeleted: true,
         deletedAt: new Date().toISOString()
       });
-      setEntries(prev => prev.filter(e => e.id !== entry.id));
-      setSuccessMessage('Entry deleted successfully!');
+      
+      setEntries(prev => prev.map(e => 
+        e.id === entry.id 
+          ? { ...e, isDeleted: true, deletedAt: new Date().toISOString() }
+          : e
+      ));
+      
+      setSuccessMessage('Entry moved to trash');
     } catch (error) {
-      console.error('Error deleting entry:', error);
+      console.error('Error moving entry to trash:', error);
     }
   };
 
@@ -238,10 +239,16 @@ function App() {
         isDeleted: true,
         deletedAt: new Date().toISOString()
       });
-      setSavedWeeks(prev => prev.filter(w => w.id !== weekId));
-      setSuccessMessage('Week deleted successfully!');
+      
+      setSavedWeeks(prev => prev.map(w => 
+        w.id === weekId 
+          ? { ...w, isDeleted: true, deletedAt: new Date().toISOString() }
+          : w
+      ));
+      
+      setSuccessMessage('Week moved to trash');
     } catch (error) {
-      console.error('Error deleting week:', error);
+      console.error('Error moving week to trash:', error);
     }
   };
 
@@ -251,7 +258,13 @@ function App() {
         isDeleted: false,
         deletedAt: null
       });
-      setEntries(prev => [...prev, { ...entry, isDeleted: false }]);
+      
+      setEntries(prev => prev.map(e => 
+        e.id === entry.id 
+          ? { ...e, isDeleted: false, deletedAt: null }
+          : e
+      ));
+      
       setSuccessMessage('Entry restored successfully!');
     } catch (error) {
       console.error('Error restoring entry:', error);
@@ -264,10 +277,13 @@ function App() {
         isDeleted: false,
         deletedAt: null
       });
-      const weekDoc = await getDoc(doc(db, 'savedWeeks', weekId));
-      if (weekDoc.exists()) {
-        setSavedWeeks(prev => [...prev, { ...weekDoc.data(), id: weekId } as SavedWeek]);
-      }
+      
+      setSavedWeeks(prev => prev.map(w => 
+        w.id === weekId 
+          ? { ...w, isDeleted: false, deletedAt: null }
+          : w
+      ));
+      
       setSuccessMessage('Week restored successfully!');
     } catch (error) {
       console.error('Error restoring week:', error);
@@ -521,7 +537,6 @@ function App() {
     <div className={`min-h-screen ${theme === 'dark' ? 'dark' : ''}`}>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
         <div className="flex min-h-screen">
-          {/* Sidebar */}
           <aside
             className={`fixed md:relative top-0 left-0 h-screen w-64 bg-white dark:bg-slate-800 shadow-lg transition-all duration-300 ease-in-out z-30
               ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-20'}
@@ -545,7 +560,6 @@ function App() {
             </div>
           </aside>
 
-          {/* Mobile overlay */}
           {isSidebarOpen && window.innerWidth < 768 && (
             <div 
               className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
@@ -553,9 +567,7 @@ function App() {
             />
           )}
 
-          {/* Main content */}
           <main className="flex-1 flex flex-col min-h-screen">
-            {/* Header */}
             <header className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
               <div className="h-16 px-4 flex items-center justify-between">
                 <button
@@ -581,14 +593,12 @@ function App() {
               </div>
             </header>
 
-            {/* Success message */}
             {successMessage && (
               <div className="fixed top-4 right-4 bg-teal-50 dark:bg-teal-900 border-l-4 border-teal-400 text-teal-600 dark:text-teal-200 p-4 rounded shadow-lg z-50">
                 {successMessage}
               </div>
             )}
 
-            {/* Page content */}
             <div className="flex-1 p-4 sm:p-6 overflow-x-hidden">
               <div className="max-w-7xl mx-auto">
                 {currentPage === 'home' && userSettings && (
