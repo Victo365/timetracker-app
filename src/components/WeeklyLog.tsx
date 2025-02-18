@@ -20,8 +20,10 @@ export const WeeklyLog: React.FC<WeeklyLogProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showNotWorkedModal, setShowNotWorkedModal] = useState(false);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
+  const [notWorkedReason, setNotWorkedReason] = useState('');
 
   const weekDates = getWeekDates(new Date(), weekStartDay);
 
@@ -39,10 +41,9 @@ export const WeeklyLog: React.FC<WeeklyLogProps> = ({
   const timeOptions = generateTimeOptions();
 
   const handleAddClick = (date: Date) => {
-    // Check if there's already an entry for this date
     const existingEntry = getEntriesForDate(date);
     if (existingEntry.length > 0) {
-      return; // Don't open modal if there's already an entry
+      return;
     }
     
     setSelectedDate(date);
@@ -50,12 +51,19 @@ export const WeeklyLog: React.FC<WeeklyLogProps> = ({
   };
 
   const handleNotWorkedClick = (date: Date) => {
-    // Delete any existing entries for this date first
-    const existingEntries = getEntriesForDate(date);
-    existingEntries.forEach(entry => onDeleteEntry(entry));
+    setSelectedDate(date);
+    setShowNotWorkedModal(true);
+  };
 
-    // Mark day as not worked without requiring a reason
-    onMarkDayNotWorked(date);
+  const handleSubmitNotWorked = () => {
+    if (selectedDate) {
+      const existingEntries = getEntriesForDate(selectedDate);
+      existingEntries.forEach(entry => onDeleteEntry(entry));
+      onMarkDayNotWorked(selectedDate, notWorkedReason);
+      setShowNotWorkedModal(false);
+      setSelectedDate(null);
+      setNotWorkedReason('');
+    }
   };
 
   const handleSubmit = () => {
@@ -123,7 +131,14 @@ export const WeeklyLog: React.FC<WeeklyLogProps> = ({
                   {notWorked ? (
                     <div className="bg-rose-50 p-3 rounded-lg">
                       <div className="flex justify-between items-center">
-                        <p className="text-rose-600 text-sm">Not Worked</p>
+                        <div>
+                          <p className="text-rose-600 text-sm font-medium">Not Worked</p>
+                          {dayEntries[0]?.notWorkedReason && (
+                            <p className="text-rose-500 text-sm mt-1">
+                              {dayEntries[0].notWorkedReason}
+                            </p>
+                          )}
+                        </div>
                         <button
                           onClick={() => onDeleteEntry(dayEntries[0])}
                           className="p-1 rounded-full hover:bg-rose-100"
@@ -213,6 +228,46 @@ export const WeeklyLog: React.FC<WeeklyLogProps> = ({
                   className="px-4 py-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-white"
                 >
                   Add Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Not Worked Modal */}
+      {showNotWorkedModal && (
+        <div className="fixed inset-0 bg-slate-500/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+            <h3 className="text-lg font-semibold mb-4 text-slate-700">Mark Day as Not Worked</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">
+                  Reason (Optional)
+                </label>
+                <textarea
+                  value={notWorkedReason}
+                  onChange={(e) => setNotWorkedReason(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2 bg-white text-slate-600 focus:border-sky-400 focus:ring focus:ring-sky-200"
+                  placeholder="Enter reason (optional)"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => {
+                    setShowNotWorkedModal(false);
+                    setNotWorkedReason('');
+                  }}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitNotWorked}
+                  className="px-4 py-2 rounded-lg bg-rose-400 hover:bg-rose-500 text-white"
+                >
+                  Mark as Not Worked
                 </button>
               </div>
             </div>

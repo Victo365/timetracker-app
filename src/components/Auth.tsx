@@ -3,14 +3,16 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, se
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserSettings } from '../types';
-import { LogIn, UserPlus, Mail, Lock, User } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 
 interface AuthProps {
+  mode: 'signin' | 'signup';
   onSuccess: () => void;
+  onBackToLanding?: () => void;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
-  const [isLogin, setIsLogin] = useState(true);
+export const Auth: React.FC<AuthProps> = ({ mode: initialMode, onSuccess, onBackToLanding }) => {
+  const [isLogin, setIsLogin] = useState(initialMode === 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -27,7 +29,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     try {
       const auth = getAuth();
       
-      // Set persistence based on remember me choice
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
 
       if (isLogin) {
@@ -41,11 +42,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
-        // Send verification email
         await sendEmailVerification(userCredential.user);
         setVerificationSent(true);
         
-        // Create user settings document
         const userSettings: UserSettings = {
           id: userCredential.user.uid,
           email,
@@ -85,6 +84,16 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+        {onBackToLanding && (
+          <button
+            onClick={onBackToLanding}
+            className="flex items-center text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Back to Main Page
+          </button>
+        )}
+        
         <div className="text-center">
           <div className="flex justify-center">
             {isLogin ? (

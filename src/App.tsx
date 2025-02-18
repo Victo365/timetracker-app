@@ -6,9 +6,9 @@ import { Settings } from './components/Settings';
 import { Navigation } from './components/Navigation';
 import { Auth } from './components/Auth';
 import { Welcome } from './components/Welcome';
-import { Tutorial } from './components/Tutorial';
-import { Profile } from './components/Profile';
 import { VerifyEmail } from './components/VerifyEmail';
+import { LandingPage } from './components/LandingPage';
+import { Profile } from './components/Profile';
 import { TimeEntry, WeekStartDay, Page, SavedWeek, UserSettings, ThemeMode } from './types';
 import { Clock, LayoutDashboard, Menu, X } from 'lucide-react';
 import { calculateWeekHours, getWeekDates, isSameDay } from './utils/timeUtils';
@@ -29,7 +29,7 @@ import { updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [currentPage, setCurrentPage] = useState<Page>('weekly');
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [savedWeeks, setSavedWeeks] = useState<SavedWeek[]>([]);
   const [weekStartDay] = useState<WeekStartDay>('monday');
@@ -37,8 +37,19 @@ function App() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+  const [showLanding, setShowLanding] = useState(true);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSidebarOpen(window.innerWidth >= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (successMessage) {
@@ -53,6 +64,7 @@ function App() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setIsAuthenticated(true);
+        setShowLanding(false);
         const userSettingsDoc = await getDoc(doc(db, 'userSettings', user.uid));
         if (userSettingsDoc.exists()) {
           const settings = userSettingsDoc.data() as UserSettings;
@@ -60,6 +72,8 @@ function App() {
           setUserSettings(settings);
           setTheme(settings.theme);
           
+          setNeedsEmailVerification(!user.emailVerified);
+
           if (settings.emailVerified !== user.emailVerified) {
             await updateDoc(doc(db, 'userSettings', user.uid), {
               emailVerified: user.emailVerified
@@ -72,28 +86,11 @@ function App() {
         setUserSettings(null);
         setEntries([]);
         setSavedWeeks([]);
+        setNeedsEmailVerification(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [currentPage]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -383,6 +380,7 @@ function App() {
       
       setSuccessMessage('Account deleted successfully!');
       setIsAuthenticated(false);
+      setShowLanding(true);
     } catch (error: any) {
       console.error('Error deleting account:', error);
       throw error;
@@ -469,84 +467,118 @@ function App() {
     }
   };
 
+  const handleSignIn = () => {
+    setAuthMode('signin');
+    setShowLanding(false);
+  };
+
+  const handleSignUp = () => {
+    setAuthMode('signup');
+    setShowLanding(false);
+  };
+
+  const handleBackToLanding = () => {
+    setShowLanding(true);
+  };
+
+  const handleMobileNavigate = () => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  if (showLanding && !isAuthenticated) {
+    return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Auth 
+        mode={authMode} 
+        onSuccess={() => setIsAuthenticated(true)} 
+        onBackToLanding={handleBackToLanding}
+      />
+    );
+  }
+
+  if (needsEmailVerification) {
+    return <VerifyEmail settings={userSettings} />;
+  }
+
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'dark' : ''}`}>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
-        {!isAuthenticated ? (
-          <Auth onSuccess={() => setIsAuthenticated(true)} />
-        ) : !userSettings?.emailVerified ? (
-          <VerifyEmail settings={userSettings} />
-        ) : (
-          <>
-            <Tutorial isAuthenticated={isAuthenticated} />
-            
-            <div className="md:hidden fixed top-4 right-4 z-50">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-lg bg-white dark:bg-slate-800 shadow-lg"
-              >
-                {isMobileMenuOpen ? (
-                  <X size={24} className="text-slate-600 dark:text-slate-300" />
-                ) : (
-                  <Menu size={24} className="text-slate-600 dark:text-slate-300" />
-                )}
-              </button>
-            </div>
-            
-            {isMobileMenuOpen && (
-              <div className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setIsMobileMenuOpen(false)} />
-            )}
-            
-            <div
-              className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 shadow-lg transform transition-transform duration-200 ease-in-out
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                md:translate-x-0 md:static md:min-h-screen
-                ${isMobileMenuOpen ? 'translate-x-0' : ''}
-              `}
-            >
+        <div className="flex min-h-screen">
+          {/* Sidebar */}
+          <aside
+            className={`fixed md:relative top-0 left-0 h-screen w-64 bg-white dark:bg-slate-800 shadow-lg transition-all duration-300 ease-in-out z-30
+              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-20'}
+            `}
+          >
+            <div className="h-full overflow-y-auto">
               <div className="p-4">
-                <div className="flex items-center space-x-3 mb-8">
-                  <LayoutDashboard size={32} className="text-sky-400" />
-                  <h1 className="text-xl font-bold text-slate-700 dark:text-white">
+                <div className={`flex items-center space-x-3 mb-8 ${!isSidebarOpen && 'md:justify-center'}`}>
+                  <LayoutDashboard size={32} className="text-sky-400 shrink-0" />
+                  <h1 className={`text-xl font-bold text-slate-700 dark:text-white transition-opacity duration-300 ${!isSidebarOpen && 'md:hidden'}`}>
                     Time Tracker
                   </h1>
                 </div>
-                <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+                <Navigation 
+                  currentPage={currentPage} 
+                  onPageChange={setCurrentPage} 
+                  collapsed={!isSidebarOpen}
+                  onMobileNavigate={handleMobileNavigate}
+                />
               </div>
             </div>
+          </aside>
 
-            <div className={`transition-all duration-200 
-              ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'}
-              min-h-screen
-            `}>
-              <header className="bg-white dark:bg-slate-800 shadow-sm h-16 sticky top-0 z-30">
-                <div className="h-full px-4 flex items-center justify-between max-w-7xl mx-auto">
-                  <button
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hidden md:block"
-                  >
-                    <Clock size={24} className="text-slate-500 dark:text-slate-400" />
-                  </button>
-                  
-                  {currentPage === 'weekly' && (
-                    <button
-                      onClick={saveCurrentWeek}
-                      disabled={isUpdating}
-                      className="save-week-button px-4 py-2 bg-teal-400 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-teal-500 dark:hover:bg-teal-600 ml-auto"
-                    >
-                      {isUpdating ? 'Saving...' : 'Save Week'}
-                    </button>
+          {/* Mobile overlay */}
+          {isSidebarOpen && window.innerWidth < 768 && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+
+          {/* Main content */}
+          <main className="flex-1 flex flex-col min-h-screen">
+            {/* Header */}
+            <header className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+              <div className="h-16 px-4 flex items-center justify-between">
+                <button
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {isSidebarOpen ? (
+                    <X size={24} className="text-slate-500 dark:text-slate-400" />
+                  ) : (
+                    <Menu size={24} className="text-slate-500 dark:text-slate-400" />
                   )}
-                </div>
-              </header>
+                </button>
 
-              {successMessage && (
-                <div className="fixed top-4 right-4 bg-teal-50 dark:bg-teal-900 border-l-4 border-teal-400 text-teal-600 dark:text-teal-200 p-4 rounded shadow-lg z-50">
-                  {successMessage}
-                </div>
-              )}
+                {currentPage === 'weekly' && (
+                  <button
+                    onClick={saveCurrentWeek}
+                    disabled={isUpdating}
+                    className="save-week-button px-4 py-2 bg-teal-400 hover:bg-teal-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-teal-500 dark:hover:bg-teal-600"
+                  >
+                    {isUpdating ? 'Saving...' : 'Save Week'}
+                  </button>
+                )}
+              </div>
+            </header>
 
-              <main className="p-4 sm:p-6 max-w-7xl mx-auto">
+            {/* Success message */}
+            {successMessage && (
+              <div className="fixed top-4 right-4 bg-teal-50 dark:bg-teal-900 border-l-4 border-teal-400 text-teal-600 dark:text-teal-200 p-4 rounded shadow-lg z-50">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Page content */}
+            <div className="flex-1 p-4 sm:p-6 overflow-x-hidden">
+              <div className="max-w-7xl mx-auto">
                 {currentPage === 'home' && userSettings && (
                   <Welcome settings={userSettings} />
                 )}
@@ -594,10 +626,10 @@ function App() {
                     onUpdateHourlyRate={handleUpdateHourlyRate}
                   />
                 )}
-              </main>
+              </div>
             </div>
-          </>
-        )}
+          </main>
+        </div>
       </div>
     </div>
   );
