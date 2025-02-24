@@ -23,7 +23,9 @@ import {
   doc, 
   setDoc, 
   writeBatch,
-  getDoc 
+  getDoc,
+  deleteDoc,
+  Timestamp 
 } from 'firebase/firestore';
 import { updateEmail, updatePassword, deleteUser } from 'firebase/auth';
 
@@ -98,6 +100,75 @@ function App() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const cleanupTrash = async () => {
+      if (!auth.currentUser) return;
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      try {
+        // Query for old deleted entries
+        const oldEntriesQuery = query(
+          collection(db, 'entries'),
+          where('userId', '==', auth.currentUser.uid),
+          where('isDeleted', '==', true),
+          where('deletedAt', '<=', thirtyDaysAgo.toISOString())
+        );
+
+        // Query for old deleted weeks
+        const oldWeeksQuery = query(
+          collection(db, 'savedWeeks'),
+          where('userId', '==', auth.currentUser.uid),
+          where('isDeleted', '==', true),
+          where('deletedAt', '<=', thirtyDaysAgo.toISOString())
+        );
+
+        const [oldEntriesSnapshot, oldWeeksSnapshot] = await Promise.all([
+          getDocs(oldEntriesQuery),
+          getDocs(oldWeeksQuery)
+        ]);
+
+        const batch = writeBatch(db);
+
+        oldEntriesSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        oldWeeksSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+
+        // Update local state to remove the deleted items
+        setEntries(prevEntries => 
+          prevEntries.filter(entry => {
+            if (!entry.deletedAt) return true;
+            const deletedAt = new Date(entry.deletedAt);
+            return deletedAt > thirtyDaysAgo;
+          })
+        );
+
+        setSavedWeeks(prevWeeks => 
+          prevWeeks.filter(week => {
+            if (!week.deletedAt) return true;
+            const deletedAt = new Date(week.deletedAt);
+            return deletedAt > thirtyDaysAgo;
+          })
+        );
+      } catch (error) {
+        console.error('Error cleaning up trash:', error);
+      }
+    };
+
+    // Run cleanup on mount and every hour
+    cleanupTrash();
+    const interval = setInterval(cleanupTrash, 3600000); // 1 hour
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -615,11 +686,12 @@ function App() {
                   />
                 )}
 
-                {currentPage === 'previous' && (
+                {currentPage === 'previous' && userSettings && (
                   <PreviousWeeks
                     savedWeeks={savedWeeks}
                     onEditWeek={handleEditWeek}
                     onDeleteWeek={handleDeleteWeek}
+                    settings={userSettings}
                   />
                 )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SavedWeek, TimeEntry } from '../types';
+import { SavedWeek, TimeEntry, UserSettings } from '../types';
 import { formatDate, calculateDailyHours } from '../utils/timeUtils';
 import { Calendar, Edit2, Trash2, Euro } from 'lucide-react';
 
@@ -7,16 +7,18 @@ interface PreviousWeeksProps {
   savedWeeks: SavedWeek[];
   onEditWeek: (weekId: string, updatedEntries: TimeEntry[]) => void;
   onDeleteWeek: (weekId: string) => void;
+  settings: UserSettings; // Add settings prop
 }
 
 export const PreviousWeeks: React.FC<PreviousWeeksProps> = ({
   savedWeeks,
   onEditWeek,
   onDeleteWeek,
+  settings,
 }) => {
   const [editingWeek, setEditingWeek] = useState<string | null>(null);
   const [editedEntries, setEditedEntries] = useState<TimeEntry[]>([]);
-  const HOURLY_RATE = 12.70;
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleEditClick = (week: SavedWeek) => {
     setEditingWeek(week.id);
@@ -347,7 +349,7 @@ export const PreviousWeeks: React.FC<PreviousWeeksProps> = ({
                         </div>
                       </td>
                       <td colSpan={3} className="py-3 px-4 font-semibold text-emerald-500">
-                        €{(week.totalHours * HOURLY_RATE).toFixed(2)}
+                        €{(week.totalHours * settings.hourlyRate).toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>
