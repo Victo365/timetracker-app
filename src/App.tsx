@@ -325,39 +325,78 @@ function App() {
 
   const handleRestoreEntry = async (entry: TimeEntry) => {
     try {
-      await updateDoc(doc(db, 'entries', entry.id), {
-        isDeleted: false,
-        deletedAt: null
-      });
+      // Check if the document exists first
+      const entryDoc = await getDoc(doc(db, 'entries', entry.id));
+      
+      if (!entryDoc.exists()) {
+        // If the document doesn't exist, create it
+        await setDoc(doc(db, 'entries', entry.id), {
+          ...entry,
+          isDeleted: false,
+          deletedAt: null,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        // If it exists, update it
+        await updateDoc(doc(db, 'entries', entry.id), {
+          isDeleted: false,
+          deletedAt: null,
+          updatedAt: new Date().toISOString()
+        });
+      }
       
       setEntries(prev => prev.map(e => 
         e.id === entry.id 
-          ? { ...e, isDeleted: false, deletedAt: null }
+          ? { ...e, isDeleted: false, deletedAt: null, updatedAt: new Date().toISOString() }
           : e
       ));
       
       setSuccessMessage('Entry restored successfully!');
     } catch (error) {
       console.error('Error restoring entry:', error);
+      throw error; // Re-throw to be caught by the TrashBin component
     }
   };
 
   const handleRestoreWeek = async (weekId: string) => {
     try {
-      await updateDoc(doc(db, 'savedWeeks', weekId), {
-        isDeleted: false,
-        deletedAt: null
-      });
+      // Check if the document exists first
+      const weekDoc = await getDoc(doc(db, 'savedWeeks', weekId));
+      
+      if (!weekDoc.exists()) {
+        // If the document doesn't exist, find it in the local state
+        const weekToRestore = savedWeeks.find(w => w.id === weekId);
+        
+        if (!weekToRestore) {
+          throw new Error('Week not found');
+        }
+        
+        // Create the document
+        await setDoc(doc(db, 'savedWeeks', weekId), {
+          ...weekToRestore,
+          isDeleted: false,
+          deletedAt: null,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        // If it exists, update it
+        await updateDoc(doc(db, 'savedWeeks', weekId), {
+          isDeleted: false,
+          deletedAt: null,
+          updatedAt: new Date().toISOString()
+        });
+      }
       
       setSavedWeeks(prev => prev.map(w => 
         w.id === weekId 
-          ? { ...w, isDeleted: false, deletedAt: null }
+          ? { ...w, isDeleted: false, deletedAt: null, updatedAt: new Date().toISOString() }
           : w
       ));
       
       setSuccessMessage('Week restored successfully!');
     } catch (error) {
       console.error('Error restoring week:', error);
+      throw error; // Re-throw to be caught by the TrashBin component
     }
   };
 

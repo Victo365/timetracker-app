@@ -20,6 +20,7 @@ export const TrashBin: React.FC<TrashBinProps> = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [displayedEntries, setDisplayedEntries] = useState<TimeEntry[]>(deletedEntries);
   const [displayedWeeks, setDisplayedWeeks] = useState<SavedWeek[]>(deletedWeeks);
+  const [error, setError] = useState<string | null>(null);
   const hasDeletedItems = displayedEntries.length > 0 || displayedWeeks.length > 0;
 
   // Update displayed items when props change, but only if we're not showing the confirm dialog
@@ -57,14 +58,26 @@ export const TrashBin: React.FC<TrashBinProps> = ({
     onEmptyTrash();
   };
 
-  const handleRestoreEntry = (entry: TimeEntry) => {
-    setDisplayedEntries(entries => entries.filter(e => e.id !== entry.id));
-    onRestoreEntry(entry);
+  const handleRestoreEntry = async (entry: TimeEntry) => {
+    try {
+      setError(null);
+      setDisplayedEntries(entries => entries.filter(e => e.id !== entry.id));
+      onRestoreEntry(entry);
+    } catch (error: any) {
+      console.error('Error restoring entry:', error);
+      setError(`Failed to restore entry: ${error.message || 'Unknown error'}`);
+    }
   };
 
-  const handleRestoreWeek = (weekId: string) => {
-    setDisplayedWeeks(weeks => weeks.filter(w => w.id !== weekId));
-    onRestoreWeek(weekId);
+  const handleRestoreWeek = async (weekId: string) => {
+    try {
+      setError(null);
+      setDisplayedWeeks(weeks => weeks.filter(w => w.id !== weekId));
+      onRestoreWeek(weekId);
+    } catch (error: any) {
+      console.error('Error restoring week:', error);
+      setError(`Failed to restore week: ${error.message || 'Unknown error'}`);
+    }
   };
 
   return (
@@ -88,6 +101,12 @@ export const TrashBin: React.FC<TrashBinProps> = ({
           </button>
         )}
       </div>
+
+      {error && (
+        <div className="bg-rose-50 dark:bg-rose-900/30 border-l-4 border-rose-500 p-4 mb-4 rounded">
+          <p className="text-rose-700 dark:text-rose-300">{error}</p>
+        </div>
+      )}
 
       {!hasDeletedItems ? (
         <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">

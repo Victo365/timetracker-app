@@ -151,19 +151,26 @@ export const PreviousWeeks: React.FC<PreviousWeeksProps> = ({
 
   // Filter out deleted weeks
   const visibleWeeks = savedWeeks.filter(week => !week.isDeleted);
+  
+  // Sort weeks from most recent to oldest
+  const sortedWeeks = [...visibleWeeks].sort((a, b) => {
+    const dateA = new Date(a.startDate);
+    const dateB = new Date(b.startDate);
+    return dateB.getTime() - dateA.getTime();
+  });
 
   return (
     <div className="space-y-8">
       <h2 className="text-xl sm:text-2xl font-bold text-slate-700 mb-6">Previous Weeks</h2>
       
-      {visibleWeeks.length === 0 ? (
+      {sortedWeeks.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <Calendar size={48} className="mx-auto mb-4 text-slate-300" />
           <p className="text-slate-500">No saved weeks yet</p>
         </div>
       ) : (
         <div className="space-y-8">
-          {visibleWeeks.map((week) => (
+          {sortedWeeks.map((week) => (
             <div
               key={week.id}
               className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden"
